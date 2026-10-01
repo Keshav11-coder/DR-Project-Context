@@ -39,6 +39,8 @@ extern "C" {
 
 #include "dshot_probe.h"
 
+//#define MTF02P_ENABLED
+
 enum RuntimeMode {
 	FAILSAFE,
 	BDEBUG,
@@ -229,8 +231,8 @@ public:
 
     void update(Microseconds dt) override
     {
-        Quaternion<Body, World> orientation = context_.orientationControlRequest.measured;
-        Quaternion<Body, World> target_o = context_.orientationControlRequest.target;
+        Quaternion<World, Body> orientation = context_.orientationControlRequest.measured;
+        Quaternion<World, Body> target_o = context_.orientationControlRequest.target;
         Vector3<Body, RadiansPerSecond> corr_o = context_.rateControlRequest.target;
 
         Vector3<Body, RadiansPerSecond> rate = context_.rateControlRequest.measured;
@@ -325,12 +327,12 @@ void cpp_main(void) {
 	ICM20602 imu;
 	MTF02P ofr;
 
-	MahonyFilter filter(Quaternion<Body, World>(), 12.0f, 0.1f);
+	MahonyFilter filter(Quaternion<World, Body>(), 12.0f, 0.1f);
 
 	Scheduler<7> runtimeSequence;
 
 	ControlContext controlContext;
-	controlContext.orientationControlRequest.target = Quaternion<Body, World>();
+	controlContext.orientationControlRequest.target = Quaternion<World, Body>();
 
 	RuntimeContext runtimeContext = RuntimeContext{
 		.mode = RuntimeMode::BDEBUG
@@ -374,7 +376,7 @@ void cpp_main(void) {
 	});
 
 	LedTask ledTask;
-	DebugTask debugTask(controlContext, DebugTask::LOG_OFL);
+	DebugTask debugTask(controlContext, DebugTask::LOG_ATT);
 
 	MTF02PObserver mtf02pObserver(controlContext, ofr);
 
@@ -427,6 +429,7 @@ void cpp_main(void) {
 				    break;
 				}
 
+#if defined(MTF02P_ENABLED)
 				if(ofrInitStatus != MTF02P_STATUS_OK) {
 					runtimeContext.mode = FAILSAFE;
 					break;
@@ -436,6 +439,7 @@ void cpp_main(void) {
 					runtimeContext.mode = OFR_VERIFY;
 					break;
 				}
+#endif
 
 				runtimeContext.mode = RDEBUG;
 

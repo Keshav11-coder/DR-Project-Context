@@ -622,20 +622,20 @@ struct Vector3
 //
 // FRAME-AWARE QUATERNION
 //
-// Quaternion<To, From> represents a rotation/transformation
+// Quaternion<From, To> represents a rotation/transformation
 // that converts vectors expressed in From into vectors expressed
 // in To.
 //
 // Example:
 //
-//     Quaternion<World, Body>
+//     Quaternion<Body, World>
 //
 // represents:
 //
 //     Body -> World
 //
 
-template<typename To, typename From>
+template<typename From, typename To>
 struct Quaternion
 {
     float w{};
@@ -656,7 +656,7 @@ struct Quaternion
     //
     // Identity
     //
-    // Identity is only mathematically meaningful when To == From.
+    // Identity is only mathematically meaningful when From == To.
     // The static_assert is intentionally inside the function body
     // so that the frame types are fully instantiated when used.
     //
@@ -779,10 +779,20 @@ struct Quaternion
     //
     // The conjugate reverses the transformation direction.
     //
+    // Quaternion<From, To>
+    //
+    //     becomes
+    //
+    // Quaternion<To, From>
+    //
+    // representing:
+    //
+    //     To -> From
+    //
 
-    constexpr Quaternion<From, To> conjugate() const
+    constexpr Quaternion<To, From> conjugate() const
     {
-        return Quaternion<From, To>(
+        return Quaternion<To, From>(
             w,
             -x,
             -y,
@@ -797,14 +807,22 @@ struct Quaternion
     // This implementation remains mathematically correct even if
     // the quaternion has not yet been normalized.
     //
+    // The inverse reverses the transformation direction:
+    //
+    //     From -> To
+    //
+    // becomes:
+    //
+    //     To -> From
+    //
 
-    Quaternion<From, To> inverse() const
+    Quaternion<To, From> inverse() const
     {
         float l_sq = length_squared();
 
         if (l_sq < 1e-8f)
         {
-            return Quaternion<From, To>(
+            return Quaternion<To, From>(
                 1.0f,
                 0.0f,
                 0.0f,
@@ -814,7 +832,7 @@ struct Quaternion
 
         float inv_l_sq = 1.0f / l_sq;
 
-        return Quaternion<From, To>(
+        return Quaternion<To, From>(
             w * inv_l_sq,
             -x * inv_l_sq,
             -y * inv_l_sq,
@@ -871,6 +889,8 @@ struct Quaternion
     //
     // Raw vector rotation
     //
+    // Applies this From -> To rotation to raw vector components.
+    //
     // Kept as a low-level operation for embedded efficiency.
     //
 
@@ -912,21 +932,25 @@ struct Quaternion
 //
 // TYPED QUATERNION COMPOSITION
 //
-// Quaternion<To, Mid> *
-// Quaternion<Mid, From>
+// Quaternion<From, Mid> *
+// Quaternion<Mid, To>
 //
 //      =
 //
-// Quaternion<To, From>
+// Quaternion<From, To>
+//
+// The right-hand quaternion is applied first:
+//
+//     From -> Mid -> To
 //
 
-template<typename To, typename Mid, typename From>
-constexpr Quaternion<To, From> operator*(
-    const Quaternion<To, Mid>& lhs,
-    const Quaternion<Mid, From>& rhs
+template<typename From, typename Mid, typename To>
+constexpr Quaternion<From, To> operator*(
+    const Quaternion<From, Mid>& lhs,
+    const Quaternion<Mid, To>& rhs
 )
 {
-    return Quaternion<To, From>(
+    return Quaternion<From, To>(
         lhs.w * rhs.w
             - lhs.x * rhs.x
             - lhs.y * rhs.y
@@ -952,17 +976,21 @@ constexpr Quaternion<To, From> operator*(
 //
 // FRAME-AWARE VECTOR ROTATION
 //
-// Quaternion<To, From>
+// Quaternion<From, To>
 // Vector3<From, Quantity>
 //
 //          ↓
 //
 // Vector3<To, Quantity>
 //
+// The quaternion converts the vector:
+//
+//     From -> To
+//
 
-template<typename To, typename From, typename Quantity>
+template<typename From, typename To, typename Quantity>
 Vector3<To, Quantity> rotate(
-    const Quaternion<To, From>& q,
+    const Quaternion<From, To>& q,
     const Vector3<From, Quantity>& v
 )
 {
